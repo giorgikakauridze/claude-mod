@@ -1,6 +1,6 @@
 {
   "name": "promt-mod",
-  "version": "0.2.0",
-  "description": "Reviews prompts over 200 characters: suggests a better structure and asks about missing details before Claude acts.",
+  "version": "0.3.0",
+  "description": "Holds back messy prompts over 300 characters: Sonnet asks about gaps and rewrites them as Task / Why / Guardrails / Done when before Claude sees them.",
   "author": { "name": "giorgikakauridze" }
 }
