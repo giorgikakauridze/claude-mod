@@ -1,0 +1,5 @@
+{
+  "name": "claude-mod",
+  "owner": { "name": "giorgikakauridze" },
+  "plugins": [{ "name": "promt-mod", "source": "./" }]
+}

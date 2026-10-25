@@ -1,0 +1,6 @@
+{
+  "name": "promt-mod",
+  "version": "0.1.0",
+  "description": "Draft Claude Code mod: a /promt-mod command and a status-line hello.",
+  "author": { "name": "giorgikakauridze" }
+}
