@@ -20,7 +20,7 @@ const answered = (text: string) => ({
 
 test('a short prompt goes through without a review', async ($, on) => {
   let reviews = 0
-  on('model.complete', () => (reviews++, answered('{"verdict":"good"}')))
+  on('model.fork', () => (reviews++, answered('{"verdict":"good"}')))
   on('prompt.submit', (_, e) => ({ text: e.text }))
 
   const sent = await $.prompt.submit(typed('Fix the checkout bug.'))
@@ -30,7 +30,7 @@ test('a short prompt goes through without a review', async ($, on) => {
 })
 
 test('a long prompt judged good goes through unchanged', async ($, on) => {
-  on('model.complete', () => answered('{"verdict":"good"}'))
+  on('model.fork', () => answered('{"verdict":"good"}'))
   on('prompt.submit', (_, e) => ({ text: e.text }))
 
   const sent = await $.prompt.submit(typed(LONG))
@@ -41,7 +41,7 @@ test('a long prompt judged good goes through unchanged', async ($, on) => {
 
 test('a messy long prompt is held back and its rewrite put in the box', async ($, on) => {
   const filled: string[] = []
-  on('model.complete', () => answered(JSON.stringify({ verdict: 'rewrite', prompt: BETTER })))
+  on('model.fork', () => answered(JSON.stringify({ verdict: 'rewrite', prompt: BETTER })))
   on('prompt.fill', (_, e) => (filled.push(e.text), { isFilled: true }))
   on('prompt.submit', (_, e) => ({ text: e.text }))
 
@@ -54,7 +54,7 @@ test('a messy long prompt is held back and its rewrite put in the box', async ($
 
 test('the suggested prompt, sent back, goes through without a review', async ($, on) => {
   let reviews = 0
-  on('model.complete', () => (reviews++, answered(JSON.stringify({ verdict: 'rewrite', prompt: BETTER }))))
+  on('model.fork', () => (reviews++, answered(JSON.stringify({ verdict: 'rewrite', prompt: BETTER }))))
   on('prompt.fill', () => ({ isFilled: true }))
   on('prompt.submit', (_, e) => ({ text: e.text }))
 
@@ -71,8 +71,8 @@ test('a prompt with gaps asks, then is held back with the rewrite', async ($, on
     questions: [{ question: 'Which environment?', header: 'Env', options: ['Staging', 'Production'] }],
   })
   const prompts: string[] = []
-  on('model.complete', (_, e) => {
-    prompts.push(typeof e.prompt === 'string' ? e.prompt : '')
+  on('model.fork', (_, e) => {
+    prompts.push(e.prompt)
     return answered(prompts.length === 1 ? asks : JSON.stringify({ prompt: BETTER }))
   })
   // This hook stands for the person answering the dialog.
@@ -88,8 +88,21 @@ test('a prompt with gaps asks, then is held back with the rewrite', async ($, on
   expect(sent.drop).toContain(BETTER)
 })
 
+test('with no conversation yet, the session model reviews alone', async ($, on) => {
+  const models: string[] = []
+  on('model.fork', () => ({ value: { isAnswered: false as const, reason: 'nothing-to-fork' as const } }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('model.complete', (_, e) => (models.push(e.model), answered('{"verdict":"good"}')))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+
+  const sent = await $.prompt.submit(typed(LONG))
+
+  expect(sent.text).toBe(LONG)
+  expect(models).toEqual(['claude-opus-5-5'])
+})
+
 test('an unreadable review lets the prompt through', async ($, on) => {
-  on('model.complete', () => answered('not json at all'))
+  on('model.fork', () => answered('not json at all'))
   on('prompt.submit', (_, e) => ({ text: e.text }))
 
   const sent = await $.prompt.submit(typed(LONG))
@@ -99,7 +112,7 @@ test('an unreadable review lets the prompt through', async ($, on) => {
 
 test('a long task notification is not reviewed', async ($, on) => {
   let reviews = 0
-  on('model.complete', () => (reviews++, answered('{"verdict":"good"}')))
+  on('model.fork', () => (reviews++, answered('{"verdict":"good"}')))
   on('prompt.submit', (_, e) => ({ text: e.text }))
 
   const sent = await $.prompt.submit(from({ kind: 'task-notification' }, LONG))

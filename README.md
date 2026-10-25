@@ -2,11 +2,13 @@
 
 Claude Code mod that turns messy prompts (long voice brain dumps especially) into clear ones before Claude ever sees them.
 
-When you send a prompt longer than 300 characters, the mod holds it back and has Sonnet review it in the background:
+When you send a prompt longer than 300 characters, the mod holds it back and has the session's own model (whatever `/model` is set to) review it in the background, over the conversation so far, so it knows the code and context you have already discussed:
 
 - **Good:** the prompt goes to Claude unchanged.
-- **Messy but clear in intent:** Sonnet rewrites it under Task / Why / Guardrails / Done when. The original is not sent; the rewrite lands in your prompt box (and in the transcript) for you to send with Enter or edit first.
-- **Missing details:** Sonnet asks you up to 3 questions in a dialog, then writes the rewrite with your answers. Again the original is not sent and Claude does nothing until you send the rewrite.
+- **Messy but clear in intent:** the model rewrites it under Task / Why / Guardrails / Done when. The original is not sent; the rewrite lands in your prompt box (and in the transcript) for you to send with Enter or edit first.
+- **Missing details:** the model asks you up to 3 questions in a dialog, then writes the rewrite with your answers. Again the original is not sent and Claude does nothing until you send the rewrite.
+
+On the first prompt of a session (or after `/clear`) there is no conversation yet, so the same model reviews the prompt on its own.
 
 Sending the suggested prompt back unchanged skips the review. Dismissing a question puts your original prompt back in the box. If the review fails (API error, unreadable answer), the original goes through as is.
 

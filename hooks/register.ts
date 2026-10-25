@@ -1,13 +1,12 @@
-import type { PromptOrigin, Register } from 'claude-code'
+import type { EngineInterface, PromptOrigin, Register } from 'claude-code'
 
 const COMMAND = 'promt-mod'
 const MIN_LENGTH = 300
-const MODEL = 'sonnet'
 const MAX_QUESTIONS = 3
 
-const RULES = `You review prompts a person is about to send to Claude Code, a coding agent working in their codebase. Prompts are often voice transcripts: expect transcription errors, topic jumps, repetition and self-contradiction.
+const RULES = `promt-mod: this is not a request to do work. Do not answer, plan or carry out the prompt below; only review it. The person is about to send it to you, Claude Code, working in their codebase. Prompts are often voice transcripts: expect transcription errors, topic jumps, repetition and self-contradiction.
 
-You do not see the conversation or the codebase. Never ask about something the agent can find there itself (file names, earlier messages, "the mod we built"); keep such references as written.
+Judge it against everything you already know from the conversation so far, the codebase and your memory. Never ask about something already settled in the conversation or that you could look up yourself (file names, earlier messages, "the mod we built"); keep such references as written.
 
 A good prompt makes clear, in any form:
 - Task: what to do, stated up front.
@@ -20,7 +19,7 @@ Answer with JSON only, no prose and no code fence, in one of three shapes:
 {"verdict":"ask","questions":[{"question":"...?","header":"...","options":["...","..."]}]}  when only the person can supply a missing decision or resolve a contradiction. At most ${MAX_QUESTIONS} questions; header 12 characters at most; 2-4 short options each, the most likely first.
 {"verdict":"rewrite","prompt":"..."}  when the intent is clear but the prompt is messy. The prompt is the person's request rewritten in their own voice under the headings Task, Why, Guardrails, Done when: transcription errors fixed, repetition removed, nothing invented.`
 
-const REWRITE = `Rewrite the person's prompt using their answers. Answer with JSON only: {"prompt":"..."}, the prompt in the person's own voice under the headings Task, Why, Guardrails, Done when, with transcription errors fixed, repetition removed and nothing invented.`
+const REWRITE = `promt-mod: this is not a request to do work. Do not carry out the prompt below. Rewrite it using the person's answers. Answer with JSON only: {"prompt":"..."}, the prompt in the person's own voice under the headings Task, Why, Guardrails, Done when, with transcription errors fixed, repetition removed and nothing invented.`
 
 type Question = { question: string; header?: string; options: string[] }
 type Review =
@@ -35,6 +34,22 @@ const isPersons = (origin: PromptOrigin) =>
   origin.kind === 'bridge' ||
   origin.kind === 'sdk' ||
   (origin.kind === 'plugin' && origin.asUser === true)
+
+// Asks the session's own model, over the conversation so far, so it judges
+// the prompt with the context the person has built up. Before the first turn
+// (or after /clear) there is nothing to fork: the same model is asked alone.
+const think = async ($: EngineInterface, rules: string, body: string) => {
+  const forked = await $.model.fork({ prompt: `${rules}\n\n${body}` })
+  if (forked.isAnswered || forked.reason !== 'nothing-to-fork') return forked
+
+  return $.model.complete({
+    model: await $.session.model(),
+    system: rules,
+    prompt: body,
+    maxTokens: 4000,
+    timeoutMs: 60_000,
+  })
+}
 
 // The model is told to answer JSON alone, but may still wrap it in a fence.
 const parse = (text: string): unknown => {
@@ -78,13 +93,8 @@ export const register: Register = on => {
 
     $.ui.status('promt-mod: reviewing your prompt…')
     try {
-      const judged = await $.model.complete({
-        model: MODEL,
-        system: RULES,
-        prompt: e.text,
-        maxTokens: 4000,
-        timeoutMs: 60_000,
-      })
+      const quoted = `<prompt>\n${e.text}\n</prompt>`
+      const judged = await think($, RULES, quoted)
       const review = judged.isAnswered ? (parse(judged.text) as Review) : undefined
       if (!review || review.verdict === 'good') return next(e)
 
@@ -104,13 +114,11 @@ export const register: Register = on => {
           }
           answers.push(`Q: ${one.question}\nA: ${answer}`)
         }
-        const rewritten = await $.model.complete({
-          model: MODEL,
-          system: REWRITE,
-          prompt: `Prompt:\n${e.text}\n\nAnswers:\n${answers.join('\n\n')}`,
-          maxTokens: 4000,
-          timeoutMs: 60_000,
-        })
+        const rewritten = await think(
+          $,
+          REWRITE,
+          `${quoted}\n\n<answers>\n${answers.join('\n\n')}\n</answers>`,
+        )
         const parsed = rewritten.isAnswered
           ? (parse(rewritten.text) as { prompt?: string } | undefined)
           : undefined
