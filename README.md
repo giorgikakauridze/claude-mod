@@ -1,6 +1,14 @@
 # promt-mod
 
-Draft Claude Code mod. For now it only proves it loads: a `/promt-mod` slash command and a `promt-mod: loaded` status-line entry.
+Claude Code mod that reviews long prompts before Claude acts on them.
+
+When you send a prompt longer than 200 characters, the mod attaches a hidden instruction asking Claude to review it first:
+
+- **Structure:** if the goal, context, constraints and "done when" are not clear and separate, Claude starts its reply with a short "Prompt review" showing the same prompt in a better structure.
+- **Gaps:** if key details or context are missing (judged against the conversation, codebase and memory Claude already has), Claude asks about them with AskUserQuestion and does no other work until you answer.
+- A well-structured, complete prompt is answered normally, with no review shown.
+
+Only your own prompts are reviewed: slash commands, background task notifications, scheduled runs and messages from other agents are left alone. `/promt-mod` checks the mod is loaded.
 
 ## Install
 
@@ -27,4 +35,5 @@ This repository is private: the install works only for people who can read it on
 ```
 claude --plugin-dir ~/Desktop/claude-mod
 claude plugin validate ~/Desktop/claude-mod
+claude plugin test ~/Desktop/claude-mod
 ```

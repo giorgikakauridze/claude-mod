@@ -1,6 +1,6 @@
 {
   "name": "promt-mod",
-  "version": "0.1.0",
-  "description": "Draft Claude Code mod: a /promt-mod command and a status-line hello.",
+  "version": "0.2.0",
+  "description": "Reviews prompts over 200 characters: suggests a better structure and asks about missing details before Claude acts.",
   "author": { "name": "giorgikakauridze" }
 }
